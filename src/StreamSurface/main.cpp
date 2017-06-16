@@ -62,7 +62,6 @@ namespace mf {
 		float incI = 14;
 		std::stringstream ss;
 
-		drawString(10, ++i * incI, 0, "  [i]   Toggle wing");
 		drawString(10, ++i * incI, 0, "  [o]   Toggle wireframe");
 		drawString(10, ++i * incI, 0, "  [l]   Toggle bounding box");
 		drawString(10, ++i * incI, 0, "  [p]   Hide/show this menu");
@@ -98,25 +97,6 @@ namespace mf {
 		glutWireCube(1);
 
 		glPopMatrix();
-	}
-
-	void drawWing() {
-		glBegin(GL_TRIANGLES);
-
-		glColor3f(0.8f, 0.8f, 0.8f);
-
-		float xMin = (float)-vectorFieldInfo.realCoordMin.x;
-		float xMax = (float)-vectorFieldInfo.realCoordMin.x + 238;
-		float yMin = (float)-vectorFieldInfo.realCoordMin.y - 145;
-		float yMid = (float)-vectorFieldInfo.realCoordMin.y;
-		float yMax = (float)-vectorFieldInfo.realCoordMin.y + 145;
-		float z = (float)-vectorFieldInfo.realCoordMin.z;
-		glNormal3f(0, 0, 1);
-		glVertex3f(xMin, yMid, z);
-		glVertex3f(xMax, yMin, z);
-		glVertex3f(xMax, yMax, z);
-
-		glEnd();
 	}
 
 	void displayCallback() {
@@ -327,7 +307,7 @@ namespace mf {
 		glutInit(argc, argv);  // Create GL context
 		glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH | GLUT_MULTISAMPLE);
 		glutInitWindowSize(screenWidth, screenHeight);
-		glutCreateWindow("CS 530 - Stream surfaces by Marek Fiser");
+		glutCreateWindow("CS 530 - Stream surfaces by Mehrdad Yousefi");
 
 		std::cout << "Open GL version: "  << (char*)glGetString(GL_VERSION) << std::endl;
 		std::cout << "Open GL vendor: "  << (char*)glGetString(GL_VENDOR) << std::endl;

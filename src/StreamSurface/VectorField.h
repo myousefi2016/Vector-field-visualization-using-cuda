@@ -84,8 +84,8 @@ namespace mf {
 				trim(value);
 
 				if (key == "type") {
-					if (value != "float") {
-						std::cerr << "Data type expected to be 'float', but it is '" << value << "'." << std::endl;
+					if (value != "double") {
+						std::cerr << "Data type expected to be 'double', but it is '" << value << "'." << std::endl;
 						return false;
 					}
 					std::cout << "Data type: " << value << std::endl;
