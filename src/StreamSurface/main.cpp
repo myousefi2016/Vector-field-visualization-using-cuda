@@ -118,9 +118,6 @@ namespace mf {
 		if (showBb) {
 			drawVolumeBb();
 		}
-		if (showWing){
-			drawWing();
-		}
 
 		if (currentActivity != nullptr) {
 			currentActivity->displayCallback();
