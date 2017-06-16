@@ -84,10 +84,6 @@ namespace mf {
 				trim(value);
 
 				if (key == "type") {
-					if (value != "double") {
-						std::cerr << "Data type expected to be 'double', but it is '" << value << "'." << std::endl;
-						return false;
-					}
 					std::cout << "Data type: " << value << std::endl;
 				}
 				else if (key == "dimension") {
