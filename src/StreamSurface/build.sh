@@ -1,7 +1,6 @@
 nvcc -std=c++11 -c -arch=sm_50 StreamSurface.cu 
 gcc -std=c++11 -c Activity.cpp 
 gcc -std=c++11 -c CudaHelper.cpp 
-gcc -std=c++11 -c CudaMathHelper.
 gcc -std=c++11 -c CudaMathHelper.cpp 
 gcc -fpermissive -std=c++11 -c GlyphsActivity.cpp 
 gcc -fpermissive -std=c++11 -c main.cpp 
