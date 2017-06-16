@@ -1,5 +1,6 @@
 #pragma once
 #include "VectorFieldInfo.h"
+#include <cmath>
 
 namespace mf {
 
@@ -210,7 +211,7 @@ namespace mf {
 				//max.z = std::max(max.z, curr->z);
 
 				// compute w
-				curr->w = std::sqrtf(curr->x * curr->x + curr->y * curr->y + curr->z * curr->z);
+				curr->w = sqrtf(curr->x * curr->x + curr->y * curr->y + curr->z * curr->z);
 
 				maxMangitude = std::max(maxMangitude, curr->w);
 			}
