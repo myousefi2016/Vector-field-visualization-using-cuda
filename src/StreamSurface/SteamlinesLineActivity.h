@@ -129,7 +129,6 @@ namespace mf {
 				, d_surfaceNormals(nullptr)
 		{
 			applyGeometrySampling();
-			applyLineWidth();
 			allocate();
 			recompute();
 		}
@@ -322,6 +321,28 @@ namespace mf {
 			return true;
 		}
 
+
+		virtual bool motionCallback(int /*x*/, int y, int /*dx*/, int /*dy*/, int /*screenWidth*/, int screenHeight, int mouseButtonsState) {
+
+                        
+			if (mouseButtonsState == (1 << GLUT_RIGHT_BUTTON)) {
+				float ptX = (1.0f - ((float)y / screenHeight)) * m_vfInfo.realSize.x;
+				m_startPt.x = ptX;
+				m_endPt.x = ptX;
+				recompute();
+				return true;
+			}
+			else if (mouseButtonsState == ((1 << GLUT_LEFT_BUTTON) | (1 << GLUT_RIGHT_BUTTON))) {
+			        float ptY = ((float)y / screenHeight) * m_vfInfo.realSize.y;
+				m_startPt.y = ptY;
+				m_endPt.y = ptY;
+				recompute();
+				return true;
+			}
+
+			return false;
+		}
+
 		virtual void displayCallback() {
 			assert(m_allocated);
 
@@ -418,9 +439,9 @@ namespace mf {
                          
                         float3 randomSeed;
 			for (uint i = 0; i < count; ++i) {
-                                randomSeed = make_float3(origin.x + ( std::rand() % ( radius + 1 ) ), 
-                                                         origin.y + ( std::rand() % ( radius + 1 ) ), 
-                                                         origin.z + ( std::rand() % ( radius + 1 ) ));
+                                randomSeed = make_float3(origin.x + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX/radius)), 
+                                                         origin.y + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX/radius)), 
+                                                         origin.z + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX/radius)));
 				m_h_seeds[i] = randomSeed;
 			}
 
