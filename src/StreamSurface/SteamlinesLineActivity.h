@@ -19,15 +19,11 @@ namespace mf {
 		float3 m_startPt;
 		float3 m_endPt;
 		uint m_maxSamples;
-		float m_lineWidth;
 		bool m_useTubes;
 		float m_tubeRadius;
 		uint m_geometrySampling;
 		uint m_maxGeometrySamples;
-		bool m_oritentationX;
-		bool m_adaptiveLinePositions;
-		float m_maxAdaptiveDistance;
-		uint m_maxAdaptiveSteps;
+                double m_sphereRadius;
 		bool m_streamSurface;
 		bool m_streamSurfaceLines;
 		uint m_stremasurfaceSlicesCount;
@@ -88,24 +84,19 @@ namespace mf {
 				, m_allocated(false)
 				, m_useRk4(true)
 				, m_useTubes(false)
-				, m_lineWidth(0.9f)
 				, m_dt(1.0 / 256.0)
 				, m_linesCount(256)
 				, m_linePairsCount(0)
 				, m_tubeRadius(1.0f)
 				, m_geometrySampling(4)
-				, m_oritentationX(true)
-				, m_adaptiveLinePositions(false)
-				, m_maxAdaptiveSteps(16)
-				, m_maxAdaptiveDistance(10)
 				, m_streamSurface(false)
 				, m_streamSurfaceLines(true)
 				, m_stremasurfaceSlicesCount(0)
 				, m_startPt(make_float3(0, 0, 0))
 				, m_endPt(make_float3(0, vfInfo.realSize.y, 0))
 				, m_maxSamples(8192)
-				, m_wingLine(false)
 				, m_maxGeometrySamples((uint)-1)  // will be properly initialized in ctor body
+                                , m_sphereRadius(1.0f)
 				, m_verticesVbo(NULL)
 				, m_cudaVerticesVboResource(nullptr)
 				, m_normalsVbo(NULL)
@@ -161,9 +152,7 @@ namespace mf {
 			checkCudaErrors(cudaGraphicsMapResources(1, &m_cudaColorsVboResource));
 			checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void**)&d_colors, &bytesCount, m_cudaColorsVboResource));
 
-			if (!m_adaptiveLinePositions) {
-				seedAsLine(m_linesCount);
-			}
+			seedAsSphere(m_linesCount, m_sphereRadius, m_startPt);
 
 			if (m_useTubes) {
 				checkCudaErrors(cudaGraphicsMapResources(1, &m_cudaIndicesVboResource));
@@ -175,19 +164,14 @@ namespace mf {
 
 			bool doComputeSurface = m_streamSurface && !m_useTubes;
 
-			if (m_adaptiveLinePositions) {
-				runAdaptiveLineEvaluation();
-			}
-			else {
-				runKernel(m_h_seeds, m_linesCount);
-				if (doComputeSurface) {
-					m_linePairsCount = m_linesCount - 1;
-					for (uint i = 0; i < m_linePairsCount; ++i) {
-						h_linePairs[i].x = i;
-						h_linePairs[i].y = i + 1;
-					}
-					checkCudaErrors(cudaMemcpy(d_inLinePairs, h_linePairs, sizeof(uint2) * m_linePairsCount, cudaMemcpyHostToDevice));
-				}
+		        runKernel(m_h_seeds, m_linesCount);
+			 if (doComputeSurface) {
+			  m_linePairsCount = m_linesCount - 1;
+			   for (uint i = 0; i < m_linePairsCount; ++i) {
+			    h_linePairs[i].x = i;
+			    h_linePairs[i].y = i + 1;
+			   }
+			 checkCudaErrors(cudaMemcpy(d_inLinePairs, h_linePairs, sizeof(uint2) * m_linePairsCount, cudaMemcpyHostToDevice));
 			}
 
 			if (doComputeSurface) {
@@ -216,12 +200,13 @@ namespace mf {
 
 			std::stringstream ss;
 
-			drawString(10, ++i * incI, 0, "Use right mouse for in x direction");
-			drawString(10, ++i * incI, 0, "Use right+left mouse for in z direction");
-
 			ss.str("");
 			ss << "[+] [-] Time step: " << m_dt;
 			drawString(10, ++i * incI, 0, ss.str());
+
+                        ss.str("");
+                        ss << "[z] [x] Sphere radius: " << m_sphereRadius;
+                        drawString(10, ++i * incI, 0, ss.str());
 
 			ss.str("");
 			ss << "[q] [w] Lines count: " << m_linesCount;
@@ -231,9 +216,6 @@ namespace mf {
 			ss << "[a] [s] Max samples: " << m_maxSamples;
 			drawString(10, ++i * incI, 0, ss.str());
 
-			ss.str("");
-			ss << "[z] [x] Line width: " << m_lineWidth;
-			drawString(10, ++i * incI, 0, ss.str());
 			ss.str("");
 			ss << "[d] [f] Geometry sampling: " << m_geometrySampling;
 			drawString(10, ++i * incI, 0, ss.str());
@@ -253,14 +235,6 @@ namespace mf {
 			}
 
 			ss.str("");
-			ss << "  [u]   Toggle orientation";
-			drawString(10, ++i * incI, 0, ss.str());
-
-			ss.str("");
-			ss << "  [j]   Toggle wing line";
-			drawString(10, ++i * incI, 0, ss.str());
-
-			ss.str("");
 			ss << "  [m]   Toggle stream surface";
 			drawString(10, ++i * incI, 0, ss.str());
 
@@ -268,19 +242,7 @@ namespace mf {
 			ss << "  [,]   Toggle stream surface lines";
 			drawString(10, ++i * incI, 0, ss.str());
 
-			ss.str("");
-			ss << "  [y]   Adaptive line positions";
-			drawString(10, ++i * incI, 0, ss.str());
 
-			if (m_adaptiveLinePositions) {
-				ss.str("");
-				ss << "[g] [h] Min adaptive distance: " << m_maxAdaptiveDistance;
-				drawString(10, ++i * incI, 0, ss.str());
-
-				ss.str("");
-				ss << "[b] [n] Max adaptive steps: " << m_maxAdaptiveSteps;
-				drawString(10, ++i * incI, 0, ss.str());
-			}
 		}
 
 		virtual bool keyboardCallback(unsigned char key) {
@@ -314,22 +276,18 @@ namespace mf {
 						allocate();
 					}
 					break;
-				case 'z':
-					if (m_lineWidth < 1) {
-						m_lineWidth *= 1.25;
-						applyLineWidth();
-					}
-					break;
-				case 'x':
-					m_lineWidth /= 1.25;
-					applyLineWidth();
-					break;
 				case 'c':
 					m_tubeRadius *= 1.25;
 					break;
 				case 'v':
 					m_tubeRadius /= 1.25;
 					break;
+                                case 'z':
+                                        m_sphereRadius *= 1.25;
+                                        break;
+                                case 'x':
+                                        m_sphereRadius /= 1.25;
+                                        break;
 				case 'd':
 					++m_geometrySampling;
 					applyGeometrySampling();
@@ -345,10 +303,6 @@ namespace mf {
 				case 'e':
 					m_useRk4 ^= true;
 					break;
-				case 'y':
-					m_adaptiveLinePositions ^= true;
-					allocate();
-					break;
 				case 't':
 					m_useTubes ^= true;
 					allocate();
@@ -360,95 +314,12 @@ namespace mf {
 				case ',':
 					m_streamSurfaceLines ^= true;
 					break;
-				case 'j':
-					m_wingLine ^= true;
-					if (m_wingLine) {
-						m_startPt = make_float3((float)-m_vfInfo.realCoordMin.x, (float)-m_vfInfo.realCoordMin.y, (float)-m_vfInfo.realCoordMin.z);
-						m_endPt = make_float3((float)-m_vfInfo.realCoordMin.x + 238, (float)-m_vfInfo.realCoordMin.y - 145, (float)-m_vfInfo.realCoordMin.z);
-					}
-					else {
-						m_startPt = make_float3(0, 0, 0);
-						m_endPt = make_float3(0, m_vfInfo.realSize.y, 0);
-					}
-					break;
-				case 'u':
-					m_oritentationX ^= true;
-					if (m_oritentationX) {
-						m_startPt = make_float3(0, 0,  0);
-						m_endPt = make_float3(0, m_vfInfo.realSize.y, 0);
-					}
-					else {
-						m_startPt = make_float3(0, m_vfInfo.realSize.y / 2, 0);
-						m_endPt = make_float3(0, m_vfInfo.realSize.y / 2, m_vfInfo.realSize.z);
-					}
-					applyLineWidth();
-					break;
-				case 'g':
-					++m_maxAdaptiveDistance;
-					break;
-				case 'h':
-					if (m_maxAdaptiveDistance > 1) {
-						--m_maxAdaptiveDistance;
-					}
-					break;
-				case 'b':
-					++m_maxAdaptiveSteps;
-					break;
-				case 'n':
-					if (m_maxAdaptiveSteps > 0) {
-						--m_maxAdaptiveSteps;
-					}
-					break;
 				default:
 					return false;
 			}
 
 			recompute();
 			return true;
-		}
-
-		virtual bool motionCallback(int /*x*/, int y, int /*dx*/, int /*dy*/, int /*screenWidth*/, int screenHeight, int mouseButtonsState) {
-
-
-			if (mouseButtonsState == (1 << GLUT_RIGHT_BUTTON)) {
-				float ptX =  m_oritentationX
-					? m_vfInfo.realSize.x - ((float)y / screenHeight) * m_vfInfo.realSize.x
-					: (1.0f - ((float)y / screenHeight)) * m_vfInfo.realSize.x;
-				if (m_wingLine) {
-					float dx = ptX - m_startPt.x;
-					m_startPt.x = ptX;
-					m_endPt.x += dx;
-				}
-				else {
-					m_startPt.x = ptX;
-					m_endPt.x = ptX;
-				}
-				recompute();
-				return true;
-			}
-			else if (mouseButtonsState == ((1 << GLUT_LEFT_BUTTON) | (1 << GLUT_RIGHT_BUTTON))) {
-				if (m_oritentationX) {
-					float ptZ = (1.0f - ((float)y / screenHeight)) * m_vfInfo.realSize.z;
-					m_startPt.z = ptZ;
-					m_endPt.z = ptZ;
-				}
-				else {
-					float ptY = ((float)y / screenHeight) * m_vfInfo.realSize.y;
-					if (m_wingLine) {
-						float dy = ptY - m_startPt.y;
-						m_startPt.y = ptY;
-						m_endPt.y += dy;
-					}
-					else {
-						m_startPt.y = ptY;
-						m_endPt.y = ptY;
-					}
-				}
-				recompute();
-				return true;
-			}
-
-			return false;
 		}
 
 		virtual void displayCallback() {
@@ -543,33 +414,14 @@ namespace mf {
 			m_maxGeometrySamples = m_maxSamples / m_geometrySampling + 1;
 		}
 
-		void applyLineWidth() {
-
-			if (m_wingLine) {
-				float3 mid = (m_startPt + m_endPt) / 2.0f;
-				float3 startVect = m_startPt - mid;
-				float3 endVect = m_endPt - mid;
-
-				m_startPt = mid + startVect * (m_lineWidth + 0.5f);
-				m_endPt = mid + endVect * (m_lineWidth + 0.5f);
-				return;
-			}
-
-			if (m_oritentationX) {
-				m_startPt.y = (1.0f - m_lineWidth) * m_vfInfo.realSize.y / 2;
-				m_endPt.y = m_lineWidth * m_vfInfo.realSize.y / 2 + m_vfInfo.realSize.y / 2;
-			}
-			else {
-				m_startPt.z = (1.0f - m_lineWidth) * m_vfInfo.realSize.z / 2;
-				m_endPt.z = m_lineWidth * m_vfInfo.realSize.z / 2 + m_vfInfo.realSize.z / 2;
-			}
-		}
-
-		void seedAsLine(uint count) {
-
-			float3 delta = (m_endPt - m_startPt) / (float)count;
+		void seedAsSphere(uint count, float radius, float3 origin) {
+                         
+                        float3 randomSeed;
 			for (uint i = 0; i < count; ++i) {
-				m_h_seeds[i] = m_startPt + (float)i * delta;
+                                randomSeed = make_float3(origin.x + ( std::rand() % ( radius + 1 ) ), 
+                                                         origin.y + ( std::rand() % ( radius + 1 ) ), 
+                                                         origin.z + ( std::rand() % ( radius + 1 ) ));
+				m_h_seeds[i] = randomSeed;
 			}
 
 		}
@@ -593,58 +445,6 @@ namespace mf {
 			}
 
 			checkCudaErrors(cudaMemcpy(m_h_ptCounts + offsetLines, m_d_ptCounts + offsetLines, seedsCount * sizeof(uint), cudaMemcpyDeviceToHost));
-		}
-
-		void runAdaptiveLineEvaluation() {
-
-			for (size_t i = 0; i < m_linesCount; ++i) {
-				m_h_ptCounts[i] = 0;
-			}
-
-			uint totalLinesCount = 0;
-			uint linesToGenerate = 2;
-
-			m_h_seeds[0] = m_startPt;
-			m_h_seeds[1] = m_endPt;
-			checkCudaErrors(cudaMemcpy(m_d_seeds, m_h_seeds, 2 * sizeof(float3), cudaMemcpyHostToDevice));
-
-			m_linePairsCount = 1;
-			uint2 linePair = make_uint2(0, 1);
-			checkCudaErrors(cudaMemcpy(d_inLinePairs, &linePair, sizeof(uint2), cudaMemcpyHostToDevice));
-
-			uint zero = 0;
-			uint verticesPerSample = m_useTubes ? m_verticesPerTubeSlice : 1;
-			uint verticesPerLine = verticesPerSample * m_maxGeometrySamples;
-
-			runKernel(nullptr, linesToGenerate, totalLinesCount);
-			totalLinesCount += linesToGenerate;
-
-			for (uint adaptiveSteps = 0; adaptiveSteps < m_maxAdaptiveSteps; ++adaptiveSteps) {
-
-				checkCudaErrors(cudaMemcpy(d_outLinesIndex, &totalLinesCount, sizeof(uint), cudaMemcpyHostToDevice));
-				checkCudaErrors(cudaMemcpy(d_outLinePairsIndex, &zero, sizeof(uint), cudaMemcpyHostToDevice));
-
-				runLineAdaptiveExtensionKernel(m_maxAdaptiveDistance, d_inLinePairs, m_linePairsCount, d_vertices, verticesPerLine, verticesPerSample, m_d_ptCounts, m_d_seeds,
-					d_outLinePairs, d_outLinePairsIndex, d_outLinesIndex, m_linesCount);
-
-				checkCudaErrors(cudaMemcpy(&m_linePairsCount, d_outLinePairsIndex, sizeof(uint), cudaMemcpyDeviceToHost));
-				//std::cout << "Pairs: " << pairsCount << std::endl;
-				assert(m_linePairsCount <= m_linesCount);
-				std::swap(d_inLinePairs, d_outLinePairs);
-
-				uint newLinesCount;
-				checkCudaErrors(cudaMemcpy(&newLinesCount, d_outLinesIndex, sizeof(uint), cudaMemcpyDeviceToHost));
-
-				linesToGenerate = newLinesCount - totalLinesCount;
-				assert(totalLinesCount + linesToGenerate <= m_linesCount);
-
-				if (linesToGenerate == 0) {
-					break;
-				}
-
-				runKernel(nullptr, linesToGenerate, totalLinesCount);
-				totalLinesCount += linesToGenerate;
-			}
 		}
 
 		void computeSurface() {
@@ -694,14 +494,7 @@ namespace mf {
 				checkCudaErrors(createCudaSharedVbo(&m_colorsVbo, GL_ARRAY_BUFFER, m_linesCount * m_maxGeometrySamples * sizeof(float3), &m_cudaColorsVboResource));
 			}
 
-			if (m_adaptiveLinePositions) {
-				checkCudaErrors(cudaMalloc((void**)&d_outLinePairs, sizeof(uint2) * m_linesCount));
-
-				checkCudaErrors(cudaMalloc((void**)&d_outLinePairsIndex, sizeof(uint2)));
-				checkCudaErrors(cudaMalloc((void**)&d_outLinesIndex, sizeof(uint2)));
-			}
-
-			if (m_adaptiveLinePositions || m_streamSurface) {
+			if (m_streamSurface) {
 				checkCudaErrors(cudaMalloc((void**)&d_inLinePairs, sizeof(uint2) * m_linesCount));
 			}
 
